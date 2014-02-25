@@ -8,11 +8,12 @@ LIB = GL m assimp
 
 LDFLAGS = $(addprefix -l, $(LIB)) `sdl-config --libs`
 
-OBJ = 	snowflake.o\
+OBJ = 	object.o\
 	SDL_util.o\
 	GL_tools.o\
+	vector_lib.o\
 
-EXE = snowflake
+EXE = object
 
 .PHONY:	all clean
 
@@ -21,10 +22,7 @@ all:	$(EXE)
 %.o:	%.c
 	$(CC) $(CFLAGS) -c $? -o $@
 
-snowflake:	$(OBJ)
-	$(CC) $^ -o $@ $(LDFLAGS)
-
-object:	object.o
+object:	$(OBJ)
 	$(CC) $^ -o $@ $(LDFLAGS)
 
 clean:
