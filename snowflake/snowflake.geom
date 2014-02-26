@@ -43,7 +43,7 @@ void main()
 		gl_Position = gl_in[i].gl_Position;
 		ex_g_colour = ex_colour[i];
 		EmitVertex();
-		koch_generator(gl_in[i].gl_Position, gl_in[(i+1)%gl_in.length].gl_Position, gl_in[(i+2)%gl_in.length].gl_Position);
+		koch_generator(gl_in[i].gl_Position, gl_in[(i+1)%gl_in.length()].gl_Position, gl_in[(i+2)%gl_in.length()].gl_Position);
 	}
 
 	gl_Position = gl_in[0].gl_Position;

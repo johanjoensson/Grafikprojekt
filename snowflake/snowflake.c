@@ -27,9 +27,9 @@ float vertices[9] = {	-0.5, -0.5, 0.0,
 			0.0, 0.366, 0.0,
 			0.5, -0.5, 0.0	};
 
-float colours[9] = {	0.0, 0.0, 1.0, 
-			0.0, 1.0, 0.0,
-			1.0, 0.0, 0.0	};
+float colours[9] = {	0.5, 0.0, 0.5, 
+			0.6, 0.4, 0.0,
+			0.0, 0.7, 0.3	};
 
 /* Make sure that the winding of the triangle is correct, otherwise it will get
  * culled, should wind counterclockwise */
@@ -54,7 +54,7 @@ void display(GLuint program)
 
 void init(GLuint program)
 {
-	glClearColor(1.0, 1.0, 1.0, 0.0);
+	glClearColor(0.6, 0.6, 0.4, 0.0);
 
 	glEnable(GL_DEPTH_TEST);
 	glCullFace(GL_BACK);
@@ -64,26 +64,18 @@ void init(GLuint program)
 	glGenVertexArrays(1, &vertex_array_object_id);
 	glBindVertexArray(vertex_array_object_id);
 
-/*
-	glGenBuffers(1, &vertex_buffer_object_id);
-	glGenBuffers(1, &colour_buffer_object_id);
-	glGenBuffers(1, &index_buffer_object_id);
-*/
 	glGenBuffers(3, buffer_object_id);
 
-//	glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_object_id);
 	glBindBuffer(GL_ARRAY_BUFFER, buffer_object_id[0]);
 	glBufferData(GL_ARRAY_BUFFER, 9*sizeof(GLfloat), vertices, GL_STATIC_DRAW);
 	glVertexAttribPointer(glGetAttribLocation(program, "in_position"), 3, GL_FLOAT, GL_FALSE, 0, 0);
 	glEnableVertexAttribArray(glGetAttribLocation(program, "in_position"));
 
-//	glBindBuffer(GL_ARRAY_BUFFER, colour_buffer_object_id);
 	glBindBuffer(GL_ARRAY_BUFFER, buffer_object_id[1]);
 	glBufferData(GL_ARRAY_BUFFER, 9*sizeof(GLfloat), colours, GL_STATIC_DRAW);
 	glVertexAttribPointer(glGetAttribLocation(program, "in_colour"), 3, GL_FLOAT, GL_FALSE, 0, 0);
 	glEnableVertexAttribArray(glGetAttribLocation(program, "in_colour"));
 
-//	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_buffer_object_id);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffer_object_id[2]);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, 3*sizeof(GLuint), indices, GL_STATIC_DRAW);
 
@@ -113,16 +105,7 @@ void event_handler(SDL_Event e)
 
 int main(int argc, char** argv)
 {
-/*
-	if(argc != 4){
-		fprintf(stderr, "Please supply 3 arguments!\nVertex-, Geometry- and \
-Fragment-shader\n");
-		return -1;
-	}
-*/
-
 	init_SDL();
-//	GLuint program = init_shaders(argv[1], argv[2], argv[3]);
 	GLuint program = init_shaders("snowflake.vert", "snowflake.geom", "snowflake.frag");
 	init(program);
 	SDL_Event event;
