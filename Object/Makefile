@@ -12,6 +12,7 @@ OBJ = 	object.o\
 	SDL_util.o\
 	GL_tools.o\
 	vector_lib.o\
+	adjacency.o\
 
 EXE = object
 

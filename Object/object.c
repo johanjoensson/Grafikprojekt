@@ -9,6 +9,136 @@
 #include "object.h"
 #include "vector_lib.h"
 
+#include "adjacency.h"
+
+void initialize_adjacency_table(struct aiMesh mesh)
+{
+	create_adjacency_table(mesh.mNumFaces);
+
+	int a, b, c;
+	for(uint32_t i = 0; i < mesh.mNumFaces; i++){
+		
+		a = mesh.mFaces[i].mIndices[0];
+		b = mesh.mFaces[i].mIndices[1];
+		c = mesh.mFaces[i].mIndices[2];
+
+		insert_neighbours(a,b,c);
+	}
+}
+
+void calculate_indices(struct aiMesh mesh, model* m)
+{
+	printf("Start of calculate indices\n");
+	uint32_t a, b;
+
+	printf("right before calculation of nb. of indices needed\n");
+	m->n_indices = mesh.mNumFaces *6;
+	printf("number of indices needed: %d\n", m->n_indices);
+	
+	m->indices = malloc(sizeof(uint32_t)*m->n_indices);
+	
+	if(mesh.mFaces != NULL){
+		int n = 0;
+		for(uint32_t i = 0; i < mesh.mNumFaces; i++){
+			for(uint32_t j = 0; j < mesh.mFaces[i].mNumIndices;
+					j++){
+				a = mesh.mFaces[i].mIndices[j];
+				b = mesh.mFaces[i].mIndices[(j+1) % 3];
+				m->indices[n + 2*j] = a;
+				m->indices[n + 2*j + 1] = -1;// find_neighbour(b, a);
+				fprintf(stderr,"neigbour to (%d, %d) is %d, ", a, b, find_neighbour(b,a));
+			}
+			fprintf(stderr,"\n");
+			n += 6;
+		}
+		fprintf(stderr,"\n");
+
+	}
+}
+
+
+void extract_vertices(struct aiMesh mesh, model* m)
+{
+	uint32_t n_vertices = mesh.mNumVertices;
+	m->n_vertices = n_vertices;
+	m->vertices = malloc(sizeof(GLfloat)*3*mesh.mNumVertices);
+
+	if(mesh.mVertices != NULL){
+		for(uint32_t i = 0; i < mesh.mNumVertices; i++){
+			m->vertices[3*i + 0] = mesh.mVertices[i].x;
+			m->vertices[3*i + 1] = mesh.mVertices[i].y;
+			m->vertices[3*i + 2] = mesh.mVertices[i].z;
+		}
+	}
+}
+
+void extract_normals(struct aiMesh mesh, model* m)
+{
+	m->normals = malloc(sizeof(GLfloat)*3*mesh.mNumVertices);
+	if(mesh.mNormals != NULL){
+		for(uint32_t i = 0; i < mesh.mNumVertices; i++){
+			m->normals[3*i + 0] = mesh.mNormals[i].x;
+			m->normals[3*i + 1] = mesh.mNormals[i].y;
+			m->normals[3*i + 2] = mesh.mNormals[i].z;
+		}
+	}
+}
+
+void extract_texture_coords(struct aiMesh mesh, model* m)
+{
+	m->texture_coords = malloc(sizeof(GLfloat)*3*mesh.mNumVertices);
+	
+	if(mesh.mTextureCoords[0] != NULL){
+		/* Assumes 3D texture coordinates */
+		for(uint32_t i = 0; i < mesh.mNumVertices; i++){
+			m->texture_coords[3*i + 0] = mesh.mTextureCoords[0][i].x;
+			m->texture_coords[3*i + 1] = mesh.mTextureCoords[0][i].y;
+			m->texture_coords[3*i + 2] = mesh.mTextureCoords[0][i].z;
+		}
+
+	}
+}
+
+void extract_colors(struct aiMesh mesh, model* m)
+{
+	m->colours = malloc(sizeof(GLfloat)*4*mesh.mNumVertices);
+	if(mesh.mColors[0] != NULL){
+		/* RGBA colours */
+		for(uint32_t i = 0; i < mesh.mNumVertices; i++){
+			m->colours[4*i + 0] = mesh.mColors[0][i].r;
+			m->colours[4*i + 1] = mesh.mColors[0][i].g;
+			m->colours[4*i + 2] = mesh.mColors[0][i].b;
+			m->colours[4*i + 3] = mesh.mColors[0][i].a;
+		}
+	}
+}
+
+model* extract_model_adjacency(struct aiMesh mesh)
+{
+	model* res = malloc(sizeof(model));
+	printf("model allocated\n");
+
+	printf("extracting vertices\n");
+	extract_vertices(mesh, res);
+	printf("extracting normals\n");
+	extract_normals(mesh, res);
+	printf("extracting texture coordinates\n");
+	extract_texture_coords(mesh, res);
+	printf("extracting colors\n");
+	extract_colors(mesh, res);
+
+	printf("Initialising neighbour list\n");
+	initialize_adjacency_table(mesh);
+
+	printf("calculating indices\n");
+	calculate_indices(mesh, res);
+
+	printf("number of faces %d, number of indexes without adj.: %d\n", mesh.mNumFaces, 3*mesh.mNumFaces);
+	printf("number of indexes with adjacency: %d \n", res->n_indices);
+	
+	return res;
+}
+
 model*  extract_model(struct aiMesh mesh)
 {
 	model *res = malloc(sizeof(model));
@@ -159,12 +289,15 @@ void generate_vao(model *m)
 	glBufferData(GL_ARRAY_BUFFER, m->n_vertices*3*sizeof(GLfloat),
 			m->normals, GL_STATIC_DRAW);
 	
+	/* Texture coordinates buffer data */
 	if(m->texture_coords != NULL){
 		glBindBuffer(GL_ARRAY_BUFFER, m->buffer_objects[2]);
 		glBufferData(GL_ARRAY_BUFFER, m->n_vertices*3*sizeof(GLfloat),
 			m->texture_coords, GL_STATIC_DRAW);
 	
 	}
+
+	/* Color buffer data */
 	if(m->colours != NULL){
 		glBindBuffer(GL_ARRAY_BUFFER, m->buffer_objects[3]);
 		glBufferData(GL_ARRAY_BUFFER, m->n_vertices*4*sizeof(GLfloat),
@@ -172,10 +305,76 @@ void generate_vao(model *m)
 	
 	}
 
+	/* Index buffer data */
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m->buffer_objects[4]);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, m->n_indices*sizeof(uint),
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, m->n_indices*sizeof(int32_t),
 	m->indices, GL_STATIC_DRAW);
 
+}
+
+void draw_model_adjacency(model* m, GLuint shaders, char* gpu_vertex, char* gpu_normal,
+		char* gpu_texcoord, char* gpu_colour)
+{
+	if(m == NULL){
+		return;
+	}
+
+	GLint gpu_location;
+
+	/* Vertices */
+	glBindVertexArray(m->vertex_array_object);
+
+	glBindBuffer(GL_ARRAY_BUFFER, m->buffer_objects[0]);
+	gpu_location = glGetAttribLocation(shaders, gpu_vertex);
+
+	if(gpu_location >= 0){
+		glVertexAttribPointer(gpu_location, 3, GL_FLOAT, GL_FALSE, 0, 0);
+		glEnableVertexAttribArray(gpu_location);
+	}else{
+		fprintf(stderr, "Warning: draw_model - %s not found in shader\
+ program\n", gpu_vertex);
+	}
+
+	if(gpu_normal != NULL){
+		gpu_location = glGetAttribLocation(shaders, gpu_normal);
+		if(gpu_location >= 0){
+			glBindBuffer(GL_ARRAY_BUFFER, m->buffer_objects[1]);
+			glVertexAttribPointer(gpu_location, 3, GL_FLOAT,
+					GL_FALSE, 0, 0);
+			glEnableVertexAttribArray(gpu_location);
+		} else {
+			fprintf(stderr, "Warning: draw_model - %s not found in\
+ shader program\n", gpu_normal);
+		}
+	}
+
+	if(gpu_texcoord != NULL && m->texture_coords != NULL){
+		gpu_location = glGetAttribLocation(shaders, gpu_texcoord);
+		if(gpu_location >= 0){
+			glBindBuffer(GL_ARRAY_BUFFER, m->buffer_objects[2]);
+			glVertexAttribPointer(gpu_location, 3, GL_FLOAT,
+					GL_FALSE, 0, 0);
+			glEnableVertexAttribArray(gpu_location);
+		} else {
+			fprintf(stderr, "Warning: draw_model - %s not found in\
+ shader program\n", gpu_texcoord);
+		}
+	}
+	if(gpu_colour != NULL){
+		gpu_location = glGetAttribLocation(shaders, "in_colour");
+		if(gpu_location >= 0){
+			glBindBuffer(GL_ARRAY_BUFFER, m->buffer_objects[3]);
+			glVertexAttribPointer(gpu_location, 4, GL_FLOAT,
+					GL_FALSE, 0, 0);
+			glEnableVertexAttribArray(gpu_location);
+		} else {
+			fprintf(stderr, "Warning: draw_model - %s not found in\
+ shader program\n", gpu_colour);
+		}
+	}
+
+	glPrimitiveRestartIndex(-1);
+	glDrawElements(GL_TRIANGLES_ADJACENCY, m->n_indices, GL_INT, 0L);
 }
 
 void draw_model(model* m, GLuint shaders, char* gpu_vertex, char* gpu_normal,
@@ -239,9 +438,39 @@ void draw_model(model* m, GLuint shaders, char* gpu_vertex, char* gpu_normal,
 		}
 	}
 
-	glDrawElements(GL_TRIANGLES, m->n_indices, GL_UNSIGNED_INT, 0L);
+	glDrawElements(GL_TRIANGLES, m->n_indices, GL_INT, 0L);
 }
 
+model** load_model_adjacency(char* model_file)
+{
+	printf("Starting to load model\n");
+	const struct aiScene *sce = aiImportFile(model_file, 
+			aiProcess_Triangulate | 
+			aiProcess_JoinIdenticalVertices | 
+			aiProcess_GenSmoothNormals |
+			aiProcess_FixInfacingNormals |
+			aiProcess_GenUVCoords |
+			aiProcess_ValidateDataStructure);
+
+	
+	model **m = malloc(sce->mNumMeshes*sizeof(model));
+	printf("loop through all the models in the file\n");
+	for(uint i = 0; i < sce->mNumMeshes; i++ ){
+		printf("Extracting model\n");
+		m[i] = extract_model_adjacency(*sce->mMeshes[i]);
+		printf("center model\n");
+		center_model(m[i]);
+		printf("generate VAO\n");
+		generate_vao(m[i]);
+	}
+
+	fflush(stdout);
+
+
+	aiReleaseImport(sce);
+
+	return m;
+}
 
 model** load_model(char* model_file)
 {
@@ -311,7 +540,8 @@ void display(model** m, GLuint program)
 	glUniformMatrix4fv(glGetUniformLocation(program, "view_matrix"), 1, GL_TRUE, cam_matrix.m);
 	glUniformMatrix4fv(glGetUniformLocation(program, "model_matrix"), 1, GL_TRUE, mat.m);
 	
-	draw_model(m[0], program, "in_position", "in_normal", NULL, NULL);
+	draw_model_adjacency(m[0], program, "in_position", "in_normal", NULL, NULL);
+//	draw_model(m[0], program, "in_position", "in_normal", NULL, NULL);
 
 	SDL_GL_SwapBuffers();
 }
@@ -363,11 +593,15 @@ int main()
 	init_SDL();
 	init();
 
+	printf("Init done\n");
 	GLuint program = init_shaders("snowflake.vert", "snowflake.geom", "snowflake.frag");
 	
 	glUseProgram(program);
 
-	model **m = load_model("only_quad_sphere.obj");
+	printf("shaders loaded and ready to go\n");
+	model **m = load_model_adjacency("only_quad_sphere.obj");
+//	model **m = load_model("only_quad_sphere.obj");
+	printf("Model loaded.\n");
 
 	SDL_Event event;
 
