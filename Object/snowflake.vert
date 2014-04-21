@@ -18,4 +18,5 @@ void main()
 	mat3 norm_matrix = mat3(view_matrix*model_matrix);
 	ex_normal = norm_matrix*in_normal;
 	gl_Position = proj_matrix*view_matrix*model_matrix*vec4(in_position,1.0);
+	ex_position = vec3(proj_matrix*view_matrix*model_matrix*vec4(in_position,1.0));
 }

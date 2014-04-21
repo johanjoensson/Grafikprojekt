@@ -13,7 +13,7 @@ typedef struct model {
 
 	GLfloat* normals;
 	GLfloat* texture_coords;
-	GLint* indices;
+	GLuint* indices;
 	
 	GLfloat* colours;
 

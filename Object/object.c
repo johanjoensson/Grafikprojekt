@@ -28,12 +28,9 @@ void initialize_adjacency_table(struct aiMesh mesh)
 
 void calculate_indices(struct aiMesh mesh, model* m)
 {
-	printf("Start of calculate indices\n");
 	uint32_t a, b;
 
-	printf("right before calculation of nb. of indices needed\n");
 	m->n_indices = mesh.mNumFaces *6;
-	printf("number of indices needed: %d\n", m->n_indices);
 	
 	m->indices = malloc(sizeof(uint32_t)*m->n_indices);
 	
@@ -45,13 +42,10 @@ void calculate_indices(struct aiMesh mesh, model* m)
 				a = mesh.mFaces[i].mIndices[j];
 				b = mesh.mFaces[i].mIndices[(j+1) % 3];
 				m->indices[n + 2*j] = a;
-				m->indices[n + 2*j + 1] = -1;// find_neighbour(b, a);
-				fprintf(stderr,"neigbour to (%d, %d) is %d, ", a, b, find_neighbour(b,a));
+				m->indices[n + 2*j + 1] = find_neighbour(a, b);
 			}
-			fprintf(stderr,"\n");
 			n += 6;
 		}
-		fprintf(stderr,"\n");
 
 	}
 }
@@ -116,26 +110,16 @@ void extract_colors(struct aiMesh mesh, model* m)
 model* extract_model_adjacency(struct aiMesh mesh)
 {
 	model* res = malloc(sizeof(model));
-	printf("model allocated\n");
 
-	printf("extracting vertices\n");
 	extract_vertices(mesh, res);
-	printf("extracting normals\n");
 	extract_normals(mesh, res);
-	printf("extracting texture coordinates\n");
 	extract_texture_coords(mesh, res);
-	printf("extracting colors\n");
 	extract_colors(mesh, res);
 
-	printf("Initialising neighbour list\n");
 	initialize_adjacency_table(mesh);
 
-	printf("calculating indices\n");
 	calculate_indices(mesh, res);
 
-	printf("number of faces %d, number of indexes without adj.: %d\n", mesh.mNumFaces, 3*mesh.mNumFaces);
-	printf("number of indexes with adjacency: %d \n", res->n_indices);
-	
 	return res;
 }
 
@@ -307,7 +291,7 @@ void generate_vao(model *m)
 
 	/* Index buffer data */
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m->buffer_objects[4]);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, m->n_indices*sizeof(int32_t),
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, m->n_indices*sizeof(GLuint),
 	m->indices, GL_STATIC_DRAW);
 
 }
@@ -374,7 +358,7 @@ void draw_model_adjacency(model* m, GLuint shaders, char* gpu_vertex, char* gpu_
 	}
 
 	glPrimitiveRestartIndex(-1);
-	glDrawElements(GL_TRIANGLES_ADJACENCY, m->n_indices, GL_INT, 0L);
+	glDrawElements(GL_TRIANGLES_ADJACENCY, m->n_indices, GL_UNSIGNED_INT, 0L);
 }
 
 void draw_model(model* m, GLuint shaders, char* gpu_vertex, char* gpu_normal,
@@ -438,12 +422,11 @@ void draw_model(model* m, GLuint shaders, char* gpu_vertex, char* gpu_normal,
 		}
 	}
 
-	glDrawElements(GL_TRIANGLES, m->n_indices, GL_INT, 0L);
+	glDrawElements(GL_TRIANGLES, m->n_indices, GL_UNSIGNED_INT, 0L);
 }
 
 model** load_model_adjacency(char* model_file)
 {
-	printf("Starting to load model\n");
 	const struct aiScene *sce = aiImportFile(model_file, 
 			aiProcess_Triangulate | 
 			aiProcess_JoinIdenticalVertices | 
@@ -454,18 +437,11 @@ model** load_model_adjacency(char* model_file)
 
 	
 	model **m = malloc(sce->mNumMeshes*sizeof(model));
-	printf("loop through all the models in the file\n");
 	for(uint i = 0; i < sce->mNumMeshes; i++ ){
-		printf("Extracting model\n");
 		m[i] = extract_model_adjacency(*sce->mMeshes[i]);
-		printf("center model\n");
 		center_model(m[i]);
-		printf("generate VAO\n");
 		generate_vao(m[i]);
 	}
-
-	fflush(stdout);
-
 
 	aiReleaseImport(sce);
 
@@ -489,9 +465,6 @@ model** load_model(char* model_file)
 		center_model(m[i]);
 		generate_vao(m[i]);
 	}
-
-	fflush(stdout);
-
 
 	aiReleaseImport(sce);
 
@@ -551,17 +524,9 @@ void init()
 	glClearColor(1.0, 0.0, 1.0, 0.0);
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_CULL_FACE);
+	glEnable(GL_PRIMITIVE_RESTART);
 	glCullFace(GL_BACK);
 	proj_matrix = perspective(90.0, 1.0, 0.1, 5000.0);
-
-	printf("Projection matrix:\n");
-	for(int i = 0; i < 16; i++){
-		if(i%4 == 0){
-			printf("\n");
-		}
-		printf("%1.3f ", proj_matrix.m[i]);
-	}
-	printf("\n");
 
 	vec_3D cam, point, up;
 	cam.x = 0.0;
@@ -577,15 +542,6 @@ void init()
 	up.z = 0.0;
 	
 	cam_matrix = look_at(cam, point, up);
-	printf("Camera matrix:\n");
-	for(int i = 0; i < 16; i++){
-		if(i%4 == 0){
-			printf("\n");
-		}
-		printf("%1.3f ", cam_matrix.m[i]);
-	}
-	printf("\n");
-
 }
 int main()
 {
@@ -595,13 +551,13 @@ int main()
 
 	printf("Init done\n");
 	GLuint program = init_shaders("snowflake.vert", "snowflake.geom", "snowflake.frag");
+//	GLuint program = init_shaders("snowflake.vert", NULL, "snowflake.frag");
 	
 	glUseProgram(program);
 
 	printf("shaders loaded and ready to go\n");
 	model **m = load_model_adjacency("only_quad_sphere.obj");
 //	model **m = load_model("only_quad_sphere.obj");
-	printf("Model loaded.\n");
 
 	SDL_Event event;
 
