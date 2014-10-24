@@ -11,7 +11,7 @@ out vec4 ex_g_colour;
 out vec3 ex_g_normal;
 out vec3 ex_g_position;
 
-vec3 light = vec3(0, 20, 0);
+vec3 light = vec3(10, 20, 20);
 
 
 void main()

@@ -11,7 +11,8 @@
 
 #include "adjacency.h"
 
-#define ADJACENCY 1
+#define ADJACENCY 0
+#define FINAL 1
 
 void initialize_adjacency_table(struct aiMesh mesh)
 {
